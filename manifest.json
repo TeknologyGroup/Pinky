@@ -1,0 +1,29 @@
+{
+  "name": "PINKY — SUNO Prompt System",
+  "short_name": "PINKY",
+  "description": "Psychedelic SUNO prompt builder for Pinky Artist",
+  "start_url": "/index.html",
+  "display": "standalone",
+  "background_color": "#060410",
+  "theme_color": "#ff4d9e",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icons/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    }
+  ]
+}

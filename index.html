@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PINKY — SUNO Psychedelic Prompt System</title>
+<!-- PWA -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#ff4d9e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="PINKY">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="apple-touch-startup-image" href="icons/icon-512.png">
+<!-- Fonts -->
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #060410;
+    --bg2: #0d0820;
+    --pink: #ff4d9e;
+    --pink2: #ff85c2;
+    --violet: #9b4dff;
+    --teal: #00e5c3;
+    --gold: #ffd166;
+    --text: #f0e6ff;
+    --muted: #7a6a99;
+    --card: rgba(255,255,255,0.04);
+    --border: rgba(255,77,158,0.2);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Space Mono', monospace;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Animated background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 80% 60% at 20% 10%, rgba(155,77,255,0.12) 0%, transparent 60%),
+      radial-gradient(ellipse 60% 80% at 80% 80%, rgba(255,77,158,0.10) 0%, transparent 60%),
+      radial-gradient(ellipse 40% 40% at 50% 50%, rgba(0,229,195,0.05) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+    animation: bgPulse 8s ease-in-out infinite alternate;
+  }
+
+  @keyframes bgPulse {
+    0% { opacity: 0.6; }
+    100% { opacity: 1; }
+  }
+
+  /* Noise texture */
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.4;
+  }
+
+  .container {
+    position: relative;
+    z-index: 1;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 40px 24px 80px;
+  }
+
+  /* Header */
+  header {
+    text-align: center;
+    margin-bottom: 60px;
+    padding-bottom: 40px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .logo {
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(48px, 10vw, 80px);
+    font-weight: 700;
+    letter-spacing: -2px;
+    background: linear-gradient(135deg, var(--pink) 0%, var(--violet) 50%, var(--teal) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    line-height: 1;
+    animation: shimmer 4s ease-in-out infinite alternate;
+  }
+
+  @keyframes shimmer {
+    0% { filter: hue-rotate(0deg) brightness(1); }
+    100% { filter: hue-rotate(20deg) brightness(1.15); }
+  }
+
+  .subtitle {
+    margin-top: 12px;
+    font-size: 11px;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .subtitle span {
+    color: var(--pink);
+  }
+
+  /* Section titles */
+  .section-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 13px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--pink2);
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .section-title::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(90deg, var(--border), transparent);
+  }
+
+  /* Template cards */
+  .templates-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 48px;
+  }
+
+  @media (max-width: 600px) {
+    .templates-grid { grid-template-columns: 1fr; }
+  }
+
+  .template-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .template-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(255,77,158,0.08), rgba(155,77,255,0.08));
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+
+  .template-card:hover::before,
+  .template-card.active::before {
+    opacity: 1;
+  }
+
+  .template-card:hover,
+  .template-card.active {
+    border-color: var(--pink);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 32px rgba(255,77,158,0.15);
+  }
+
+  .template-card.active {
+    border-color: var(--teal);
+    box-shadow: 0 8px 32px rgba(0,229,195,0.15);
+  }
+
+  .card-emoji {
+    font-size: 28px;
+    margin-bottom: 10px;
+    display: block;
+  }
+
+  .card-name {
+    font-family: 'Playfair Display', serif;
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 6px;
+  }
+
+  .card-desc {
+    font-size: 10px;
+    color: var(--muted);
+    line-height: 1.6;
+  }
+
+  .card-freq {
+    margin-top: 10px;
+    font-size: 9px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--teal);
+  }
+
+  /* Customizer */
+  .customizer {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 32px;
+    margin-bottom: 32px;
+  }
+
+  .input-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 20px;
+  }
+
+  @media (max-width: 600px) {
+    .input-row { grid-template-columns: 1fr; }
+  }
+
+  .input-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .input-group label {
+    font-size: 9px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .input-group input,
+  .input-group select {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 8px;
+    padding: 10px 14px;
+    color: var(--text);
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .input-group input:focus,
+  .input-group select:focus {
+    border-color: var(--pink);
+  }
+
+  .input-group select option {
+    background: var(--bg2);
+  }
+
+  /* Toggle chips */
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 20px;
+  }
+
+  .chip {
+    padding: 6px 14px;
+    border-radius: 20px;
+    border: 1px solid rgba(255,255,255,0.12);
+    font-size: 10px;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: transparent;
+    color: var(--muted);
+    font-family: 'Space Mono', monospace;
+  }
+
+  .chip:hover {
+    border-color: var(--pink);
+    color: var(--pink);
+  }
+
+  .chip.on {
+    background: rgba(255,77,158,0.15);
+    border-color: var(--pink);
+    color: var(--pink);
+  }
+
+  .chip.on.teal {
+    background: rgba(0,229,195,0.12);
+    border-color: var(--teal);
+    color: var(--teal);
+  }
+
+  /* Generate button */
+  .generate-btn {
+    width: 100%;
+    padding: 16px;
+    background: linear-gradient(135deg, var(--pink), var(--violet));
+    border: none;
+    border-radius: 10px;
+    color: white;
+    font-family: 'Space Mono', monospace;
+    font-size: 13px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.3s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .generate-btn::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, var(--teal), var(--violet));
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+
+  .generate-btn:hover::after { opacity: 1; }
+  .generate-btn:hover { transform: translateY(-1px); box-shadow: 0 8px 24px rgba(155,77,255,0.4); }
+  .generate-btn span { position: relative; z-index: 1; }
+
+  /* Output area */
+  .output-section {
+    margin-top: 32px;
+  }
+
+  .output-box {
+    background: rgba(0,0,0,0.4);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 16px;
+  }
+
+  .output-label {
+    background: rgba(255,77,158,0.1);
+    padding: 10px 20px;
+    font-size: 9px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--pink);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .output-label.violet {
+    background: rgba(155,77,255,0.1);
+    color: var(--violet);
+    border-bottom-color: rgba(155,77,255,0.2);
+  }
+
+  .output-label.teal {
+    background: rgba(0,229,195,0.08);
+    color: var(--teal);
+    border-bottom-color: rgba(0,229,195,0.2);
+  }
+
+  .copy-btn {
+    background: none;
+    border: 1px solid currentColor;
+    border-radius: 4px;
+    padding: 3px 10px;
+    color: inherit;
+    font-family: 'Space Mono', monospace;
+    font-size: 8px;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: all 0.2s;
+    opacity: 0.7;
+  }
+
+  .copy-btn:hover { opacity: 1; background: rgba(255,255,255,0.08); }
+
+  .output-content {
+    padding: 20px;
+    font-size: 12px;
+    line-height: 1.8;
+    color: var(--text);
+    white-space: pre-wrap;
+    word-break: break-word;
+    min-height: 60px;
+  }
+
+  .output-content em {
+    color: var(--gold);
+    font-style: normal;
+    font-weight: 700;
+  }
+
+  /* Frequency info */
+  .freq-info {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-top: 32px;
+    padding-top: 32px;
+    border-top: 1px solid var(--border);
+  }
+
+  @media (max-width: 600px) {
+    .freq-info { grid-template-columns: 1fr; }
+  }
+
+  .freq-card {
+    background: var(--card);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 10px;
+    padding: 16px;
+    text-align: center;
+  }
+
+  .freq-hz {
+    font-family: 'Playfair Display', serif;
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--teal);
+    display: block;
+  }
+
+  .freq-name {
+    font-size: 9px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-top: 4px;
+    display: block;
+  }
+
+  .freq-effect {
+    font-size: 10px;
+    color: var(--pink2);
+    margin-top: 6px;
+  }
+
+  /* Pulse dot */
+  .pulse {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--teal);
+    margin-right: 6px;
+    animation: pulseDot 2s ease-in-out infinite;
+  }
+
+  @keyframes pulseDot {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.4; transform: scale(0.6); }
+  }
+
+  .hidden { display: none; }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <div class="logo">PINKY</div>
+    <div class="subtitle">SUNO <span>Psychedelic</span> Prompt System · by V7 / ZEVUS</div>
+  </header>
+
+  <!-- Template Selection -->
+  <div class="section-title">01 — Choose Your State</div>
+  <div class="templates-grid">
+
+    <div class="template-card active" data-id="dissolve" onclick="selectTemplate(this)">
+      <span class="card-emoji">🌊</span>
+      <div class="card-name">Dissolve</div>
+      <div class="card-desc">Ego dissolution, floating sensation, oceanic feeling. Slow dream-drift into formlessness.</div>
+      <div class="card-freq">528 Hz · Theta 6Hz · Delta sub</div>
+    </div>
+
+    <div class="template-card" data-id="visions" onclick="selectTemplate(this)">
+      <span class="card-emoji">🌀</span>
+      <div class="card-name">Visions</div>
+      <div class="card-desc">Visual hallucination aesthetic. Colours shifting, patterns breathing, inner cinema.</div>
+      <div class="card-freq">432 Hz · Alpha 10Hz · Gamma burst</div>
+    </div>
+
+    <div class="template-card" data-id="surrender" onclick="selectTemplate(this)">
+      <span class="card-emoji">🌸</span>
+      <div class="card-name">Surrender</div>
+      <div class="card-desc">Deep emotional release. Letting go. Warmth, light, unconditional love frequency.</div>
+      <div class="card-freq">639 Hz · Theta 7Hz · Binaural 4Hz</div>
+    </div>
+
+    <div class="template-card" data-id="cosmos" onclick="selectTemplate(this)">
+      <span class="card-emoji">✨</span>
+      <div class="card-name">Cosmos</div>
+      <div class="card-desc">Expansion into infinite space. Stars, dark matter, the edge of perception.</div>
+      <div class="card-freq">963 Hz · Gamma 40Hz · Drone</div>
+    </div>
+
+  </div>
+
+  <!-- Customizer -->
+  <div class="section-title">02 — Customize</div>
+  <div class="customizer">
+
+    <div class="input-row">
+      <div class="input-group">
+        <label>Song / Track Title</label>
+        <input type="text" id="trackTitle" placeholder="e.g. Pink Mirror" value="Pink Mirror">
+      </div>
+      <div class="input-group">
+        <label>BPM / Tempo Feel</label>
+        <select id="bpmFeel">
+          <option value="slow drifting, 60 BPM">Slow Drift · 60 BPM</option>
+          <option value="floating, 70 BPM">Floating · 70 BPM</option>
+          <option value="hypnotic pulse, 80 BPM" selected>Hypnotic · 80 BPM</option>
+          <option value="gentle sway, 90 BPM">Gentle Sway · 90 BPM</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="input-row">
+      <div class="input-group">
+        <label>Vocal Style</label>
+        <select id="vocalStyle">
+          <option value="breathy ethereal female vocals, heavily reverbed">Ethereal Female</option>
+          <option value="layered angelic harmonies, distant and dreamlike" selected>Angelic Harmonies</option>
+          <option value="whispered intimate female voice, close-mic">Whispered Intimate</option>
+          <option value="vocoded processed voice, half-human half-synth">Vocoded / Processed</option>
+        </select>
+      </div>
+      <div class="input-group">
+        <label>Main Emotion / Theme</label>
+        <input type="text" id="emotion" placeholder="e.g. surrender, awakening" value="surrender, inner light">
+      </div>
+    </div>
+
+    <div class="section-title" style="font-size:10px; margin-bottom:12px;">Sound Elements — Toggle Active</div>
+    <div class="chips">
+      <div class="chip on" data-val="528Hz solfeggio drone bass" onclick="toggleChip(this)">528 Hz Solfeggio</div>
+      <div class="chip on" data-val="binaural beats embedded in the mix" onclick="toggleChip(this)">Binaural Beats</div>
+      <div class="chip on" data-val="rain sounds and water textures" onclick="toggleChip(this)">Rain / Water</div>
+      <div class="chip on teal" data-val="wind chimes and nature ambience" onclick="toggleChip(this)">Wind / Nature</div>
+      <div class="chip" data-val="psychedelic synth arpeggios" onclick="toggleChip(this)">Psych Arpeggio</div>
+      <div class="chip" data-val="crystal singing bowls" onclick="toggleChip(this)">Crystal Bowls</div>
+      <div class="chip" data-val="reversed reverb tails" onclick="toggleChip(this)">Reversed Reverb</div>
+      <div class="chip" data-val="tape saturation and analog warmth" onclick="toggleChip(this)">Tape Saturation</div>
+      <div class="chip" data-val="wide stereo field, 3D audio movement" onclick="toggleChip(this)">3D / Wide Stereo</div>
+    </div>
+
+    <button class="generate-btn" onclick="generatePrompts()">
+      <span>✦ Generate SUNO Prompts</span>
+    </button>
+  </div>
+
+  <!-- Output -->
+  <div class="output-section" id="outputSection" style="display:none">
+    <div class="section-title">03 — Your SUNO Prompts</div>
+
+    <div class="output-box">
+      <div class="output-label">
+        <span><span class="pulse"></span>Style Prompt — paste in SUNO "Style" field</span>
+        <button class="copy-btn" onclick="copyText('styleOut')">Copy</button>
+      </div>
+      <div class="output-content" id="styleOut"></div>
+    </div>
+
+    <div class="output-box">
+      <div class="output-label violet">
+        <span><span class="pulse" style="background:var(--violet)"></span>Lyrics Prompt — paste in SUNO "Lyrics" field</span>
+        <button class="copy-btn" onclick="copyText('lyricsOut')">Copy</button>
+      </div>
+      <div class="output-content" id="lyricsOut"></div>
+    </div>
+
+    <div class="output-box">
+      <div class="output-label teal">
+        <span><span class="pulse" style="background:var(--teal)"></span>Song Description — for SUNO description / title context</span>
+        <button class="copy-btn" onclick="copyText('descOut')">Copy</button>
+      </div>
+      <div class="output-content" id="descOut"></div>
+    </div>
+
+    <!-- Frequency reference -->
+    <div class="section-title" style="margin-top:40px">Sound Science — Active Frequencies</div>
+    <div class="freq-info" id="freqInfo"></div>
+  </div>
+
+</div>
+
+<script>
+const templates = {
+  dissolve: {
+    styleBase: "psychedelic dream pop, shoegaze, ambient float",
+    lyricTheme: "losing yourself, melting into the universe, the feeling of no-boundaries",
+    freqs: ["528", "theta", "delta"],
+    moodTags: "oceanic, weightless, womb-like, formless, infinite soft",
+    structureTip: "[Intro] long drone pad fade in\n[Verse] breathed whisper lyric\n[Chorus] layered harmonics swell\n[Bridge] pure texture, no words\n[Outro] dissolve into silence"
+  },
+  visions: {
+    styleBase: "psychedelic pop, kaleidoscopic synth, neo-psychedelia",
+    lyricTheme: "seeing colors shift, patterns in the dark, inner visions opening",
+    freqs: ["432", "alpha", "gamma"],
+    moodTags: "vivid, fractal, electric, synesthetic, acid-bright, visual",
+    structureTip: "[Intro] flickering synth texture\n[Verse] staccato lyric, tight delay\n[Chorus] explode into colour, wide reverb\n[Bridge] tempo drop, hallucination sequence\n[Outro] crystallize into stillness"
+  },
+  surrender: {
+    styleBase: "dream pop, ethereal soul, spiritual R&B haze",
+    lyricTheme: "releasing control, opening the heart, warmth of surrender and love",
+    freqs: ["639", "theta", "binaural_4"],
+    moodTags: "warm, golden, vulnerable, open, loving, tender dissolution",
+    structureTip: "[Intro] soft piano + rain texture\n[Verse] intimate whisper\n[Pre-Chorus] harmonic rise\n[Chorus] full bloom, emotional peak\n[Bridge] spoken word moment\n[Outro] gentle fade, breath"
+  },
+  cosmos: {
+    styleBase: "cosmic dream pop, space ambient, cinematic psych",
+    lyricTheme: "expanding beyond self into stars, the infinite, being made of light",
+    freqs: ["963", "gamma_40", "drone"],
+    moodTags: "vast, stellar, transcendent, cold-warm duality, infinite depth",
+    structureTip: "[Intro] 40Hz pulse rising from silence\n[Verse] small intimate voice against huge space\n[Chorus] voice doubles, octave up\n[Bridge] drone only, 963Hz hum\n[Outro] supernova burst then void"
+  }
+};
+
+const freqData = {
+  "528": { hz: "528 Hz", name: "Love / DNA", effect: "Heart opening, cellular repair, emotional warmth" },
+  "432": { hz: "432 Hz", name: "Natural Tune", effect: "Deeper resonance, natural harmony, calm clarity" },
+  "639": { hz: "639 Hz", name: "Connection", effect: "Emotional release, interpersonal healing, love" },
+  "963": { hz: "963 Hz", name: "Crown / Source", effect: "Cosmic awareness, spiritual expansion, oneness" },
+  "theta": { hz: "Theta 6Hz", name: "Dream State", effect: "Deep meditation, trance, access to subconscious" },
+  "alpha": { hz: "Alpha 10Hz", name: "Flow State", effect: "Relaxed awareness, creative openness, light trance" },
+  "delta": { hz: "Delta 2Hz", name: "Deep Sleep", effect: "Full body relaxation, unconscious healing" },
+  "binaural_4": { hz: "Binaural 4Hz", name: "Theta Beat", effect: "Induced theta via earphone stereo split" },
+  "gamma_40": { hz: "Gamma 40Hz", name: "Peak Awareness", effect: "Heightened perception, unity, peak states" },
+  "drone": { hz: "Drone Tones", name: "Harmonic Hum", effect: "Nervous system regulation, deep resonance" }
+};
+
+let activeTemplate = 'dissolve';
+
+function selectTemplate(el) {
+  document.querySelectorAll('.template-card').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  activeTemplate = el.dataset.id;
+}
+
+function toggleChip(el) {
+  el.classList.toggle('on');
+  if (el.classList.contains('on') && !el.dataset.val.includes('wind') && !el.dataset.val.includes('crystal') && !el.dataset.val.includes('3D')) {
+    el.classList.remove('teal');
+  }
+}
+
+function getActiveChips() {
+  return [...document.querySelectorAll('.chip.on')].map(c => c.dataset.val);
+}
+
+function generatePrompts() {
+  const t = templates[activeTemplate];
+  const title = document.getElementById('trackTitle').value || 'Untitled';
+  const bpm = document.getElementById('bpmFeel').value;
+  const vocal = document.getElementById('vocalStyle').value;
+  const emotion = document.getElementById('emotion').value || 'transcendence';
+  const chips = getActiveChips();
+
+  const soundElements = chips.length ? chips.join(', ') : 'pure ambient texture';
+
+  // Style prompt
+  const stylePrompt =
+`${t.styleBase}, ${bpm}, ${vocal}, ${t.moodTags}, ${soundElements}, lush production, spatial audio, immersive headphone listening experience, Pinky artist signature sound`;
+
+  // Lyrics prompt
+  const lyricsPrompt =
+`[Mood: ${t.moodTags}]
+[Theme: ${t.lyricTheme}]
+[Emotion: ${emotion}]
+[Language: English]
+[Vocal: ${vocal}]
+
+${t.structureTip}
+
+Write introspective, poetic lyrics about ${t.lyricTheme}. Use imagery of light, water, dissolution of self. Short lines, repetition for hypnotic effect. Title: "${title}"`;
+
+  // Description
+  const descPrompt =
+`"${title}" by Pinky — a ${t.styleBase} track designed to induce ${t.moodTags.split(',')[0].trim()} states. Built around ${t.freqs.map(f => freqData[f]?.hz || f).join(', ')} to guide the listener into ${emotion}. Sound elements include ${soundElements}.`;
+
+  document.getElementById('styleOut').textContent = stylePrompt;
+  document.getElementById('lyricsOut').textContent = lyricsPrompt;
+  document.getElementById('descOut').textContent = descPrompt;
+
+  // Freq cards
+  const freqContainer = document.getElementById('freqInfo');
+  freqContainer.innerHTML = '';
+  t.freqs.forEach(f => {
+    const d = freqData[f];
+    if (!d) return;
+    freqContainer.innerHTML += `
+      <div class="freq-card">
+        <span class="freq-hz">${d.hz}</span>
+        <span class="freq-name">${d.name}</span>
+        <div class="freq-effect">${d.effect}</div>
+      </div>`;
+  });
+
+  document.getElementById('outputSection').style.display = 'block';
+  document.getElementById('outputSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function copyText(id) {
+  const text = document.getElementById(id).textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = event.target;
+    btn.textContent = 'Copied!';
+    setTimeout(() => btn.textContent = 'Copy', 1500);
+  });
+}
+</script>
+
+<script>
+// Register Service Worker for PWA offline support
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js')
+      .then(reg => console.log('PINKY SW registered:', reg.scope))
+      .catch(err => console.warn('SW registration failed:', err));
+  });
+}
+</script>
+</body>
+</html>
